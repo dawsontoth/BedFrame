@@ -81,3 +81,7 @@ Cloud.Users.remove({ user: 'dawson' });
     - Their execution context is the method.
     - They give you a programmatic way to ensure default values are present.
     - In our example, if a method doesn't have a "restNamespace", the preparer uses the lowercase'd "namespace".
+    
+## Why the Name?
+
+Because it helps you REST.
