@@ -20,7 +20,15 @@ NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
  There are 5 rules you need to understand when creating the API object. Once you have these under your belt, you will
  know everything there is to know about BedFrame!
 
- As we walk through these rules, we'll use the following API BedFrame:
+ As we walk through these rules, we'll be creating an API that can be used like this:
+
+<pre>
+Cloud.Users.create({ user: 'dawson', password: 'something... sneaky...' });
+Cloud.Users.get({ user: 'dawson' });
+Cloud.Users.remove({ user: 'dawson' });
+</pre>
+
+ We create this API with the following call to the BedFrame.build method:
 
 <pre>
 var Cloud = {};
@@ -29,7 +37,7 @@ BedFrame.build(Cloud, {
 	verb: 'GET',
 	executor: function (data) {
 		// TODO: connect to your REST API!
-		alert({
+		Ti.API.info({
 			data: data,
 			verb: this.verb,
 			method: this.method,
@@ -55,9 +63,42 @@ BedFrame.build(Cloud, {
 		}
 	]
 });
-Cloud.Users.create({ user: 'dawson', password: 'something... sneaky...' });
-Cloud.Users.get({ user: 'dawson' });
-Cloud.Users.remove({ user: 'dawson' });
+</pre>
+
+ The following will be logged as a result of running the above code:
+ 
+<pre>
+[INFO] {
+    data =     {
+        password = "something... sneaky...";
+        user = dawson;
+    };
+    foo = bar;
+    method = create;
+    namespace = Users;
+    restNamespace = users;
+    verb = POST;
+}
+[INFO] {
+    data =     {
+        user = dawson;
+    };
+    foo = bar;
+    method = get;
+    namespace = Users;
+    restNamespace = user;
+    verb = GET;
+}
+[INFO] {
+    data =     {
+        user = dawson;
+    };
+    foo = bar;
+    method = remove;
+    namespace = Users;
+    restNamespace = users;
+    verb = DELETE;
+}
 </pre>
 
 1. Namespaces are all of the properties of your parent object.
