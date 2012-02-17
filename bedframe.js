@@ -1,5 +1,5 @@
 /*!
- * BedFrame v0.1 by Dawson Toth
+ * BedFrame v0.2 by Dawson Toth
  * A framework for exposing RESTful APIs to Appcelerator Titanium Mobile.
  * 
  * This framework is designed for REST APIs with the following characteristics:
@@ -16,14 +16,19 @@
  */
 
 /**
+ * Decide if we are being used as a module, or as an included file.
+ */
+var BedFrame = exports ? exports : {};
+
+/**
  * Builds a full API on the provided parent object, as defined in the api object.
  * @param parent An object in to which the API should be injected.
  * @param api The specifications for the REST API you want to expose through objects. Read "THE API OBJECT" in bedframe.js to find out more.
  */
-exports.build = function (parent, api) {
+BedFrame.build = function (parent, api) {
     // Ensure we received a namespaces object, and extract it.
     var namespaces = api.namespaces;
-    requireArgument('namespaces', namespaces, 'object');
+    bedframeRequireArgument('namespaces', namespaces, 'object');
     delete api.namespaces;
 
     // Iterate through the namespaces.
@@ -32,7 +37,7 @@ exports.build = function (parent, api) {
 
         // Ensure we received a methods object, and extract it.
         var methods = namespace.methods;
-        requireArgument('namespaces[' + n + '].methods', methods, 'object');
+        bedframeRequireArgument('namespaces[' + n + '].methods', methods, 'object');
         delete namespace.methods;
 
         // Iterate through the methods.
@@ -41,7 +46,7 @@ exports.build = function (parent, api) {
 
             // Mix the properties from the api and namespace in to the method. (This lets us set up default values
             // very easily.)
-            mixToMethod(api, namespace, method);
+            bedframeMixToMethod(api, namespace, method);
 
             // If there is a preparer function, give it a chance to prepare the method.
             if (method.preparer) {
@@ -49,9 +54,9 @@ exports.build = function (parent, api) {
             }
 
             // Ensure the required properties are present.
-            requireArgument('namespaces[' + n + '].methods[' + m + '].method', method.method, 'string');
-            requireArgument('namespaces[' + n + '].methods[' + m + '].namespace', method.namespace, 'string');
-            requireArgument('namespaces[' + n + '].methods[' + m + '].executor', method.executor, 'function');
+            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].method', method.method, 'string');
+            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].namespace', method.namespace, 'string');
+            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].executor', method.executor, 'function');
 
             // Ensure the namespace exists.
             if (parent[method.namespace] === undefined) {
@@ -59,7 +64,7 @@ exports.build = function (parent, api) {
             }
 
             // Curry the method itself, which is how we can set the executor's context (ie "this.").
-            parent[method.namespace][method.method] = curryMethod(method);
+            parent[method.namespace][method.method] = bedframeCurryMethod(method);
         }
     }
 };
@@ -68,7 +73,7 @@ exports.build = function (parent, api) {
  * Returns a function that will use the provided method's executor, using the method as the execution context.
  * @param method
  */
-function curryMethod(method) {
+function bedframeCurryMethod(method) {
     return function () {
         method.executor.apply(method, arguments);
     };
@@ -81,7 +86,7 @@ function curryMethod(method) {
  * @param namespace
  * @param method
  */
-function mixToMethod(api, namespace, method) {
+function bedframeMixToMethod(api, namespace, method) {
     for (var n in namespace) {
         if (!namespace.hasOwnProperty(n) || method.hasOwnProperty(n))
             continue;
@@ -100,7 +105,7 @@ function mixToMethod(api, namespace, method) {
  * @param arg The actual provided argument
  * @param type The string value of the expected argument type (such as 'object' or 'string').
  */
-function requireArgument(name, arg, type) {
+function bedframeRequireArgument(name, arg, type) {
     if (arg === undefined)
         throw 'Argument ' + name + ' was not provided!';
     if (typeof(arg) != type)
