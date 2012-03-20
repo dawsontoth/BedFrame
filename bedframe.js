@@ -1,5 +1,5 @@
 /*!
- * BedFrame v0.2 by Dawson Toth
+ * BedFrame v0.3 by Dawson Toth
  * A framework for exposing RESTful APIs to Appcelerator Titanium Mobile.
  * 
  * This framework is designed for REST APIs with the following characteristics:
@@ -16,98 +16,90 @@
  */
 
 /**
- * Decide if we are being used as a module, or as an included file.
+ * This can be used as a module or as an included file. If you are including it (or inlining it) in to another module,
+ * then you should replace the below with simply var BedFrame = {}, removing the exports ternary expression.
  */
 var BedFrame = exports ? exports : {};
 
 /**
- * Builds a full API on the provided parent object, as defined in the api object.
- * @param parent An object in to which the API should be injected.
- * @param api The specifications for the REST API you want to expose through objects. Read "THE API OBJECT" in bedframe.js to find out more.
+ * Default property type that results in only the latest specified value being used (that is, the deepest child's value
+ * will be used over any of its parents). Particularly useful for specifying default values that most children use, and
+ * then overriding those default values on exceptional children.
  */
-BedFrame.build = function (parent, api) {
-    // Ensure we received a namespaces object, and extract it.
-    var namespaces = api.namespaces;
-    bedframeRequireArgument('namespaces', namespaces, 'object');
-    delete api.namespaces;
+BedFrame.PROPERTY_TYPE_ONLY_LATEST = 0;
+/**
+ * Property type that results in child values equating to their parent value plus their own, separated by a forward
+ * slash. Particularly useful for creating a URL hierarchy.
+ */
+BedFrame.PROPERTY_TYPE_SLASH_COMBINE = 1;
+/**
+ * Property type that results in a parent value not propogating to its children.
+ */
+BedFrame.PROPERTY_TYPE_IGNORE = 2;
 
-    // Iterate through the namespaces.
-    for (var n = 0, nl = namespaces.length; n < nl; n++) {
-        var namespace = namespaces[n];
+/**
+ * Recursively builds a full API on the target object, as defined in the api object. Properties will be added to the target object,
+ * but the object reference itself will not be altered. This means you can safely "build" on a CommonJS exports object.
+ *
+ * @param target The object that the API will be created in.
+ * @param api The specifications for the API you want to expose through objects. Read "THE API OBJECT" in readme.md to find out more.
+ */
+BedFrame.build = function bedFrameTransformObject(target, api) {
+    // Save a reference to the children property of the current segment of the API.
+    var children = api.children || [];
 
-        // Ensure we received a methods object, and extract it.
-        var methods = namespace.methods;
-        bedframeRequireArgument('namespaces[' + n + '].methods', methods, 'object');
-        delete namespace.methods;
+    // Iterate over every child to set up its API.
+    for (var c in children) {
+        // Avoid prototyped members.
+        if (!children.hasOwnProperty(c))
+            continue;
+        // Create a shorter reference to the present child.
+        var child = children[c];
+        // Determine the present property types, or default to an empty object.
+        // (We will pass this variable down in the next step; propertyTypes is itself by default typed ONLY_LATEST).
+        var propertyTypes = child.propertyTypes || api.propertyTypes || {};
+        // Don't pass down children (that causes an infinite recursion).
+        propertyTypes.children = BedFrame.PROPERTY_TYPE_IGNORE;
 
-        // Iterate through the methods.
-        for (var m = 0, ml = methods.length; m < ml; m++) {
-            var method = methods[m];
-
-            // Mix the properties from the api and namespace in to the method. (This lets us set up default values
-            // very easily.)
-            bedframeMixToMethod(api, namespace, method);
-
-            // If there is a preparer function, give it a chance to prepare the method.
-            if (method.preparer) {
-                method.preparer.apply(method);
+        // Iterate over every member of the current segment of the API.
+        for (var o in api) {
+            // Avoid prototyped members and children.
+            if (!api.hasOwnProperty(o))
+                continue;
+            // Based on the property type specified for this API, cascade property down from parent to child.
+            switch (propertyTypes[o] || BedFrame.PROPERTY_TYPE_ONLY_LATEST) {
+                case BedFrame.PROPERTY_TYPE_ONLY_LATEST:
+                    // ONLY_LATEST results in child taking precedence over the parent, completely replacing the value.
+                    child[o] = child[o] === undefined ? api[o] : child[o];
+                    break;
+                case BedFrame.PROPERTY_TYPE_SLASH_COMBINE:
+                    // SLASH_COMBINE results in the child ending up with a slash-separated-value from the top most
+                    // parent to the present child, where elements without a value are ignored (there won't be any
+                    // double slashes in the computed value).
+                    var parts = [];
+                    if (api[o])
+                        parts.push(api[o]);
+                    if (child[o])
+                        parts.push(child[o]);
+                    child[o] = parts.join('/');
+                    break;
             }
+        }
 
-            // Ensure the required properties are present.
-            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].method', method.method, 'string');
-            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].namespace', method.namespace, 'string');
-            bedframeRequireArgument('namespaces[' + n + '].methods[' + m + '].executor', method.executor, 'function');
-
-            // Ensure the namespace exists.
-            if (parent[method.namespace] === undefined) {
-                parent[method.namespace] = {};
-            }
-
-            // Curry the method itself, which is how we can set the executor's context (ie "this.").
-            parent[method.namespace][method.method] = bedframeCurryMethod(method);
+        // If the current child specifies the method property, and does not have any children, it's an endpoint and
+        // needs to be set up as a method. Inject it in to the target.
+        if (child.method && !child.children) {
+            target[child.method] = (function (child) {
+                return function () {
+                    // Executors are designed to work based off of their context. Act upon the child, which is a mixed
+                    // down result of its parent, and its parent's parent, and so on.
+                    child.executor.apply(child, arguments);
+                };
+            })(child);
+        }
+        // Otherwise, inject the new property in to the target, and recurse upon the sub-segment of the API.
+        else if (child.property) {
+            bedFrameTransformObject(target[child.property] = {}, child);
         }
     }
 };
-
-/**
- * Returns a function that will use the provided method's executor, using the method as the execution context.
- * @param method
- */
-function bedframeCurryMethod(method) {
-    return function () {
-        method.executor.apply(method, arguments);
-    };
-}
-
-/**
- * Mixes the properties from the arguments together in to the method argument. Method takes precedence, followed
- * by namespace. NOTE THAT THIS DOES NOT RECURSIVELY COPY!
- * @param api
- * @param namespace
- * @param method
- */
-function bedframeMixToMethod(api, namespace, method) {
-    for (var n in namespace) {
-        if (!namespace.hasOwnProperty(n) || method.hasOwnProperty(n))
-            continue;
-        method[n] = namespace[n];
-    }
-    for (var a in api) {
-        if (!api.hasOwnProperty(a) || method.hasOwnProperty(a))
-            continue;
-        method[a] = api[a];
-    }
-}
-
-/**
- * Throws an exception if an argument has not been provided, or is not of the expected type.
- * @param name The string display name of the argument (such as 'data')
- * @param arg The actual provided argument
- * @param type The string value of the expected argument type (such as 'object' or 'string').
- */
-function bedframeRequireArgument(name, arg, type) {
-    if (arg === undefined)
-        throw 'Argument ' + name + ' was not provided!';
-    if (typeof(arg) != type)
-        throw 'Argument ' + name + ' was an unexpected type! Expected: ' + type + ', Received: ' + typeof(arg);
-}

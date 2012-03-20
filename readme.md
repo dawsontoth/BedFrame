@@ -3,24 +3,32 @@ A framework for exposing RESTful APIs to Appcelerator Titanium Mobile.
 
 This framework is designed for REST APIs with the following characteristics:
 
-1. Contains many different methods, in many different namespaces.
-2. Method signatures are all very similar.
+1. Well structured.
+2. Medium to large number of methods.
  
 
 You probably don't need this framework if:
 
-1. You only want to expose a couple methods.
+1. You only need to expose a couple methods.
 
 
-NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+This has been tested to work properly with:
 
+1. iOS devices and simulators
+2. Android devices and emulators
+3. Mobile Web
+
+## What About a Real, Working Version?
+
+1. Check out the app.js and netflix.js included in this repository. It wraps the Netflix OData feed.
+2. The ti.cloud module, shipping with Titanium Mobile 2.0.0 and higher, uses BedFrame to wrap the Appcelerator Cloud Services.
 
 ## THE API OBJECT
 
- There are 5 rules you need to understand when creating the API object. Once you have these under your belt, you will
- know everything there is to know about BedFrame!
+There are 5 rules you need to understand when creating the API object. Once you have these under your belt, you will
+know everything there is to know about BedFrame!
 
- As we walk through these rules, we'll be creating an API that can be used like this:
+As we walk through these rules, we'll be creating an API that can be used like this:
 
 <pre>
 Cloud.Users.create({ user: 'dawson', password: 'something... sneaky...' });
@@ -34,38 +42,37 @@ Cloud.Users.remove({ user: 'dawson' });
 var Cloud = {};
 var BedFrame = require('bedframe');
 BedFrame.build(Cloud, {
+	propertyTypes: {
+        // Properties default to BedFrame.PROPERTY_TYPE_ONLY_LATEST
+        url: BedFrame.PROPERTY_TYPE_SLASH_COMBINE
+    },
 	verb: 'GET',
+	url: 'https://api.example.com',
 	executor: function (data) {
 		// TODO: connect to your REST API!
 		Ti.API.info({
 			data: data,
 			verb: this.verb,
-			method: this.method,
-			namespace: this.namespace,
-			restNamespace: this.restNamespace,
+			url: this.url,
 			foo: this.foo
 		});
 	},
-	preparer: function () {
-		if (!this.restNamespace) {
-			this.restNamespace = this.namespace.toLowerCase();
-		}
-	},
-	namespaces: [
+	children: [
 		{
+			property: 'Users',
+			url: 'Users',
 			foo: 'bar',
-			namespace: 'Users',
-			methods: [
-				{ method: 'create', verb: 'POST' },
-				{ method: 'get', restNamespace: 'user' },
-				{ method: 'remove', verb: 'DELETE' }
+			children: [
+				{ method: 'create', url: 'create.json', verb: 'POST'  },
+				{ method: 'get', url: 'get.json' },
+				{ method: 'remove', url: 'remove.json', verb: 'DELETE' }
 			]
 		}
 	]
 });
 </pre>
 
- The following will be logged as a result of running the above code:
+ The following will be logged as a result of running the above two code snippets:
  
 <pre>
 [INFO] {
@@ -74,9 +81,7 @@ BedFrame.build(Cloud, {
         user = dawson;
     };
     foo = bar;
-    method = create;
-    namespace = Users;
-    restNamespace = users;
+    url = "https://api.example.com/Users/create.json";
     verb = POST;
 }
 [INFO] {
@@ -84,9 +89,7 @@ BedFrame.build(Cloud, {
         user = dawson;
     };
     foo = bar;
-    method = get;
-    namespace = Users;
-    restNamespace = user;
+    url = "https://api.example.com/Users/get.json";
     verb = GET;
 }
 [INFO] {
@@ -94,35 +97,37 @@ BedFrame.build(Cloud, {
         user = dawson;
     };
     foo = bar;
-    method = remove;
-    namespace = Users;
-    restNamespace = users;
+    url = "https://api.example.com/Users/remove.json";
     verb = DELETE;
 }
 </pre>
 
-1. Namespaces are all of the properties of your parent object.
-    - "Users" is a namespace of "Cloud".
+1. The BedFrame module only has one method: *BedFrame.build(target, api)*.
+	- object target: The object that the API will be created in.
+	- object api: The specifications for the API you want to expose through objects.
+
+2. Specifying the "children" array creates a child API of the current API. That child API also follows these 5 rules. You can deeply nest child APIs.
+	- "Users" is a child API of the "Cloud" API.
     
-2. Methods are the functions in a namespace.
+3. Methods are the functions in an API.
     - "create", "get", and "remove" are all methods of "Users".
  
-3. Every property, other than "namespaces" and "methods", will be mixed down in to your methods, unless it is already defined.
-    - "verb: 'GET'" will mix down to all three methods
-    - "executor" will also mix down to all three methods
-    - "verb: 'POST'" in the "create" method overrides "verb: 'GET'"
-    - "foo: 'bar': will mix down to all three methods
+4. Every property, other than "children", will be mixed down in to your methods, according to the propertyTypes.
+	- There are three available constants: *BedFrame.PROPERTY_TYPE_SLASH_COMBINE*, *BedFrame.PROPERTY_TYPE_ONLY_LATEST*, and *BedFrame.PROPERTY_TYPE_IGNORE*.
+	- "verb: 'GET'" will mix down to all three methods
+	- "executor" will also mix down to all three methods
+	- "verb: 'POST'" in the "create" method overrides "verb: 'GET'"
+	- "foo: 'bar'" will mix down to all three methods
+	- "url" will combine down to a slash-separated, valid URL
     
-4. Executors handle function execution.
-    - "Cloud.Users.create" is your executor, and it will execute in the mixed down context of "{ method: 'create', verb: 'POST' }".
-    - These are where you want to actually make network requests to your REST API.
- 
-5. Preparers help prepare your methods before they are given to the executors.
-    - They are called once for each method.
-    - Their execution context is the method.
-    - They give you a programmatic way to ensure default values are present.
-    - In our example, if a method doesn't have a "restNamespace", the preparer uses the lowercase'd "namespace".
+5. Executors handle function execution.
+	- "Cloud.Users.create" is your executor (a function), and it will execute with the context ("this") of "{ method: 'create', verb: 'POST', url: 'https://api.example.com/Users/create.json', foo: 'bar' }".
+	- These are where you want to actually make network requests to your REST API.
     
 ## Why the Name?
 
-Because it helps you REST.
+Because it helps you REST, but it is not a full REST framework. It just helps you accomplish the end goal with far less code.
+
+## Warning
+
+NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
