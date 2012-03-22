@@ -93,7 +93,7 @@ BedFrame.build = function bedFrameTransformObject(target, api) {
                 return function () {
                     // Executors are designed to work based off of their context. Act upon the child, which is a mixed
                     // down result of its parent, and its parent's parent, and so on.
-                    child.executor.apply(child, arguments);
+                    return child.executor.apply(child, arguments);
                 };
             })(child);
         }
