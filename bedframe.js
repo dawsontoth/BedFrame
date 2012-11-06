@@ -1,6 +1,6 @@
 /*!
  * BedFrame v0.4 by Dawson Toth
- * A framework for exposing RESTful APIs to Appcelerator Titanium Mobile.
+ * A framework for exposing RESTful APIs to JavaScript.
  * 
  * This framework is designed for REST APIs with the following characteristics:
  *  1) Contains many different methods, in many different namespaces.
