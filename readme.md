@@ -113,7 +113,7 @@ BedFrame.build(Cloud, {
     - "create", "get", and "remove" are all methods of "Users".
  
 4. Every property, other than "children", will be mixed down in to your methods, according to the propertyTypes.
-	- There are three available constants: *BedFrame.PROPERTY_TYPE_SLASH_COMBINE*, *BedFrame.PROPERTY_TYPE_ONLY_LATEST*, and *BedFrame.PROPERTY_TYPE_IGNORE*.
+	- There are four available constants: *BedFrame.PROPERTY_TYPE_SLASH_COMBINE*, *BedFrame.PROPERTY_TYPE_CONCATENATE*, *BedFrame.PROPERTY_TYPE_ONLY_LATEST*, and *BedFrame.PROPERTY_TYPE_IGNORE*.
 	- "verb: 'GET'" will mix down to all three methods
 	- "executor" will also mix down to all three methods
 	- "verb: 'POST'" in the "create" method overrides "verb: 'GET'"

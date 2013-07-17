@@ -33,9 +33,14 @@ BedFrame.PROPERTY_TYPE_ONLY_LATEST = 0;
  */
 BedFrame.PROPERTY_TYPE_SLASH_COMBINE = 1;
 /**
+ * Property type that results in child values equating to their parent value plus their own. Particularly useful for 
+ * creating a URL hierarchy.
+ */
+BedFrame.PROPERTY_TYPE_CONCATENATE = 2;
+/**
  * Property type that results in a parent value not propogating to its children.
  */
-BedFrame.PROPERTY_TYPE_IGNORE = 2;
+BedFrame.PROPERTY_TYPE_IGNORE = 3;
 
 /**
  * Recursively builds a full API on the target object, as defined in the api object. Properties will be added to the target object,
@@ -71,6 +76,9 @@ BedFrame.build = function bedFrameTransformObject(target, api) {
                 case BedFrame.PROPERTY_TYPE_ONLY_LATEST:
                     // ONLY_LATEST results in child taking precedence over the parent, completely replacing the value.
                     child[o] = child[o] === undefined ? api[o] : child[o];
+                    break;
+	            case BedFrame.PROPERTY_TYPE_CONCATENATE:
+                    child[o] = (api[o] || '') + (child[o] || '');
                     break;
                 case BedFrame.PROPERTY_TYPE_SLASH_COMBINE:
                     // SLASH_COMBINE results in the child ending up with a slash-separated-value from the top most
